@@ -1,7 +1,6 @@
 
 # %% 
 import pandas as pd
-from sklearn import tree
 
 # %%
 df = pd.read_csv(
@@ -60,11 +59,8 @@ X = pd.merge(
 X.head()
 
 # %%
-from sklearn.preprocessing import LabelEncoder
-
 target = df.iloc[:, -2]
-y = LabelEncoder().fit_transform(target)
-y
+y = target
 
 #%%
 # ===========================================================================#
@@ -98,7 +94,6 @@ def get_most_frequent_tokens(tokens, limit=10):
 #%%
 # tokenize
 tokens = df['text_content'].dropna().apply(handle_text)
-#%%
 tokens = tokens.apply(lambda x: x.split())
 #%%
 most_frequent_tokens = tokens.apply(lambda x: get_most_frequent_tokens(x, 15))
@@ -120,82 +115,57 @@ X = pd.merge(
   df_tokens.reset_index(),
   left_index=True, right_index=True
 )
-
-# %% 
-# ===========================================================================#
-# SELECTING MOST RELEVANT FEATURES
-# from sklearn.feature_selection import SelectKBest, chi2
-
-# f = SelectKBest(score_func=chi2, k=5)
-# z = f.fit_transform(X, y)
-# cols = z.get_support(indices=True)
-# pd.DataFrame(X,y).head()
+X.head()
 
 # %%  
 # ===========================================================================#
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report, precision_recall_fscore_support
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression, Perceptron
-from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
 
 # %% 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=4)
-# %% 
-from sklearn.naive_bayes import GaussianNB
-
-model = GaussianNB()  
-model.fit(X_train,y_train)
-score = model.score(X_test,y_test)
-print('The accuracy of the GaussianNB is', score)
-
-# %%
-model = DecisionTreeClassifier()
-model.fit(X_train, y_train)
-score = model.score(X_test,y_test)
-print('The accuracy of the Decision Tree is', score)
-plot_tree(model)
 
 # %% 
-model = RandomForestClassifier(n_estimators=10, random_state=9, class_weight='balanced')
-model.fit(X_train, y_train)
-score = model.score(X_test,y_test)
-print('The accuracy of the Random Forest Model is', score)
+models = [
+  GaussianNB(),
+  DecisionTreeClassifier(),
+  RandomForestClassifier(n_estimators=10, random_state=9, class_weight='balanced'),
+  Perceptron(eta0=1, random_state=1),
+  GaussianNB(),
+  SVC(),
+  LogisticRegression(),
+  KNeighborsClassifier()
+]
+# %% 
+index = []
+model_bench = {
+  "accuracy": [],
+  "precision": [],
+  "recall": [],
+  "fscore": [],
+}
+for model in models:
+  model.fit(X_train,y_train)
+  y_pred = model.predict(X_test)
+  accuracy = accuracy_score(y_test, y_pred)
+  precision, recall, fscore, _ = precision_recall_fscore_support(y_test, y_pred,average='weighted')
+  index.append(type(model).__name__)
+  
+  model_bench["accuracy"].append(accuracy)
+  model_bench["precision"].append(precision)
+  model_bench["recall"].append(recall)
+  model_bench["fscore"].append(fscore)
 
-#%%
-ppn = Perceptron(eta0=1, random_state=1)
-ppn.fit(X_train, y_train)
-y_pred = ppn.predict(X_test)
-accuracy_score(y_pred,y_test)
-score_ppn=cross_val_score(ppn, X,y, cv=5)
-score_ppn.mean()
-#%%
-# Gaussian Naive Bayes
-gaussian = GaussianNB()
-gaussian.fit(X_train, y_train)
-score_gaussian = gaussian.score(X_test,y_test)
-print('The accuracy of Gaussian Naive Bayes is', score_gaussian)
-
-#%%
-# Support Vector Classifier (SVM/SVC)
-from sklearn.svm import SVC
-svc = SVC()
-svc.fit(X_train, y_train)
-score_svc = svc.score(X_test,y_test)
-print('The accuracy of SVC is', score_svc)
-
-#%% Logistic Regression
-logreg = LogisticRegression()
-logreg.fit(X_train, y_train)
-score_logreg = logreg.score(X_test,y_test)
-print('The accuracy of the Logistic Regression is', score_logreg)
-
-#%% K-Nearest Neighbors
-knn = KNeighborsClassifier()
-knn.fit(X_train, y_train)
-score_knn = knn.score(X_test,y_test)
-print('The accuracy of the KNN Model is',score_knn)
+model_bench
+# %% 
+pd.options.display.float_format = '{:.2%}'.format
+bench_df = pd.DataFrame(model_bench, index=index)
+bench_df.head(20)
