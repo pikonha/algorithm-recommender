@@ -139,7 +139,6 @@ models = [
   DecisionTreeClassifier(),
   RandomForestClassifier(n_estimators=10, random_state=9, class_weight='balanced'),
   Perceptron(eta0=1, random_state=1),
-  GaussianNB(),
   SVC(),
   LogisticRegression(),
   KNeighborsClassifier()
