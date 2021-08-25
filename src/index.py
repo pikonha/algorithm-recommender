@@ -51,17 +51,12 @@ discrete_features = pd.merge(
 discrete_features = pd.get_dummies(discrete_features)
 discrete_features.head()
 # %%
-X = pd.merge(
+features = pd.merge(
   continuous_features.reset_index(drop=True), 
   discrete_features.reset_index(drop=True),
   left_index=True, right_index=True
 ) 
-X.head()
-
-# %%
-target = df.iloc[:, -2]
-y = target
-
+features.head()
 #%%
 # ===========================================================================#
 
@@ -101,6 +96,7 @@ most_frequent_tokens
 #%%
 df_tokens = pd.DataFrame.from_records(most_frequent_tokens)
 df_tokens.head(20)
+
 # %%
 w = []
 for _, row in df_tokens.iterrows():
@@ -110,18 +106,20 @@ df_tokens = pd.DataFrame(w).fillna(0).astype(int)
 df_tokens.head()
 
 # %%
-X = pd.merge(
-  X.reset_index(),
+features = pd.merge(
+  features.reset_index(),
   df_tokens.reset_index(),
   left_index=True, right_index=True
 )
-X.head()
+features.head()
+
+# %%
+target = df.iloc[:, -2]
 
 # %%  
 # ===========================================================================#
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, precision_recall_fscore_support
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import train_test_split,cross_val_predict
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support, mean_squared_error
 from sklearn.linear_model import LogisticRegression, Perceptron
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -131,18 +129,25 @@ from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
 
 # %% 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=4)
+X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=4)
 
 # %% 
 models = [
   GaussianNB(),
   DecisionTreeClassifier(),
-  RandomForestClassifier(n_estimators=10, random_state=9, class_weight='balanced'),
-  Perceptron(eta0=1, random_state=1),
+  RandomForestClassifier(),
+  Perceptron(),
   SVC(),
   LogisticRegression(),
   KNeighborsClassifier()
 ]
+
+#%%
+from sklearn import preprocessing
+
+le = preprocessing.LabelEncoder()
+z = le.fit_transform(target)
+
 # %% 
 index = []
 model_bench = {
@@ -150,21 +155,40 @@ model_bench = {
   "precision": [],
   "recall": [],
   "fscore": [],
+  "MSE": []
 }
 for model in models:
   model.fit(X_train,y_train)
   y_pred = model.predict(X_test)
   accuracy = accuracy_score(y_test, y_pred)
   precision, recall, fscore, _ = precision_recall_fscore_support(y_test, y_pred,average='weighted')
+  
+  y_pred_cv = cross_val_predict(model, features, z, cv=10)
+  MSE = mean_squared_error(z,y_pred_cv)
+
   index.append(type(model).__name__)
   
   model_bench["accuracy"].append(accuracy)
   model_bench["precision"].append(precision)
   model_bench["recall"].append(recall)
   model_bench["fscore"].append(fscore)
+  model_bench["MSE"].append(MSE)
 
 model_bench
 # %% 
 pd.options.display.float_format = '{:.2%}'.format
 bench_df = pd.DataFrame(model_bench, index=index)
 bench_df.head(20)
+# %% 
+# save algorithm
+
+decision_tree = DecisionTreeClassifier()
+decision_tree.fit(features, target)
+
+model = pd.Series({
+  "model": decision_tree,
+  "columns": features.columns
+  # "features": features,
+  # "target": y
+})
+model.to_pickle("../models/decision.tree.pkl")
