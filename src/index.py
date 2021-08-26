@@ -21,42 +21,42 @@ df = pd.read_csv(
 df.head()
 
 #%%
-df.dropna(subset=["text_content", "feature_types"], inplace=True)
-df.shape
+from sklearn.pipeline import Pipeline
+from transformers import Dropna, SplitColumn, DropColumns, ModifiedLabelEncoder
+from feature_engine.encoding import OneHotEncoder
+from sklearn.tree import DecisionTreeClassifier
+
+#%%
+pipe = Pipeline(steps=[
+  ("dropna", Dropna(["text_content", "feature_types"])),
+  ("split_column", SplitColumn("feature_types")),
+  ("drop_columns", DropColumns(["reference","url", "feature_types", "text_content"])), # TODO: remove text_content from here
+  ("onehot", OneHotEncoder(variables=["problem_type", "target_type", "type_of_learning"])),
+  ("label_encoder", ModifiedLabelEncoder()),
+  # ("decision_tree", DecisionTreeClassifier())
+])
+
+# %%
+features = list(set(df.columns) - set("algorithm"))
+target = 'algorithm'
+pipe.fit(df[features],df[target])
+
+# %%
+model = pd.Series({
+  "model": pipe,
+  "columns": features.columns,
+  "features": features
+})
+model.to_pickle("../models/pipeline.pkl")
+
+# ===========================================================================#
+# %%
+pipe.transform(df).head()
 
 # %%
 df['algorithm'] = df['algorithm'].str.lower()
 df[['algorithm', 'problem_type']].value_counts()
 
-# %%
-r = []
-for row in df['feature_types'].str.split(',').tolist():
-  c = {f'feature_{col}': 1 for col in row}
-  r.append(c)
-feature_types = pd.DataFrame(r).fillna(0).astype(int)
-feature_types.head()
-
-# %%
-df.drop(columns=["reference","url", "feature_types"], axis=1, inplace=True)
-
-# %%
-continuous_features = df.iloc[:,1:3]
-continuous_features
-# %%
-discrete_features = pd.merge(
-  df.iloc[:,:1].reset_index(drop=True),
-  df.iloc[:,3:-2].reset_index(drop=True),
-  left_index=True, right_index=True
-) 
-discrete_features = pd.get_dummies(discrete_features)
-discrete_features.head()
-# %%
-features = pd.merge(
-  continuous_features.reset_index(drop=True), 
-  discrete_features.reset_index(drop=True),
-  left_index=True, right_index=True
-) 
-features.head()
 #%%
 # ===========================================================================#
 
