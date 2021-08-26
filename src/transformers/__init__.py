@@ -49,7 +49,8 @@ class SplitColumn(BaseEstimator, TransformerMixin):
 class ModifiedLabelEncoder(LabelEncoder):
 
     def fit(self, _, y):
-        return super().fit(y)
+        super().fit(y)
+        return self
 
     def fit_transform(self, _, y):
         return super().fit_transform(y).reshape(-1, 1)
