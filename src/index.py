@@ -22,37 +22,40 @@ df.head()
 
 #%%
 from sklearn.pipeline import Pipeline
-from transformers import Dropna, SplitColumn, DropColumns, ModifiedLabelEncoder
 from feature_engine.encoding import OneHotEncoder
 from sklearn.tree import DecisionTreeClassifier
+from transformers import Dropna, SplitColumn, DropColumns, GetDummies
+from sklearn.preprocessing import FunctionTransformer
+
 
 #%%
 pipe = Pipeline(steps=[
-  ("dropna", Dropna(["text_content", "feature_types"])),
-  ("split_column", SplitColumn("feature_types")),
-  ("drop_columns", DropColumns(["reference","url", "feature_types", "text_content"])), # TODO: remove text_content from here
+  ("dropna", FunctionTransformer(Dropna)),
+  ("split_column", FunctionTransformer(SplitColumn)),
+  ("drop_columns", FunctionTransformer(DropColumns)),
   ("onehot", OneHotEncoder(variables=["problem_type", "target_type", "type_of_learning"])),
-  ("label_encoder", ModifiedLabelEncoder()),
+  # ("label_encoder", FunctionTransformer(GetDummies)),
   # ("decision_tree", DecisionTreeClassifier())
 ])
 
 # %%
-features = list(set(df.columns) - set("algorithm"))
+features = list(set(df.columns) - set(["algorithm", "url", "reference"]))
 target = 'algorithm'
 pipe.fit(df[features],df[target])
 
+df_fit = pipe.transform(df[features])
+df_fit.head()
 # %%
-model = pd.Series({
-  "model": pipe,
-  "columns": features.columns,
+model = DecisionTreeClassifier()
+model.fit(df_fit, df_fit[target])
+# %%
+pd.Series({
+  "pipe": pipe,
+  "model": model,
   "features": features
-})
-model.to_pickle("../models/pipeline.pkl")
+}).to_pickle("../models/pipeline.pkl")
 
 # ===========================================================================#
-# %%
-pipe.transform(df).head()
-
 # %%
 df['algorithm'] = df['algorithm'].str.lower()
 df[['algorithm', 'problem_type']].value_counts()
