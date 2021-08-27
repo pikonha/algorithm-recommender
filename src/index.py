@@ -70,14 +70,18 @@ from collections import Counter
 
 nltk.download('stopwords')
 
+
 #%%
+q = {}
 stop_words = set(stopwords.words('english'))
 porter = PorterStemmer()
 def handle_text(text):
   tokens = word_tokenize(text)
-  tokens = [
-    porter.stem(w) for w in tokens 
-    if not w in stop_words and len(w) > 2 and w.isalpha()]
+  for w in tokens:
+    if not w in stop_words and len(w) > 2 and w.isalpha():
+      z = porter.stem(w) 
+      q[z] = q[z] + 1 if z in q else 1
+    
   return ' '.join(tokens)
 
 #%%
@@ -90,6 +94,13 @@ def get_most_frequent_tokens(tokens, limit=10):
 # tokenize
 tokens = df['text_content'].dropna().apply(handle_text)
 tokens = tokens.apply(lambda x: x.split())
+#%%
+import csv
+
+with open('tokens.csv', 'w') as f:
+    for key in q.keys():
+        f.write("%s,%s\n"%(key,q[key]))
+
 #%%
 most_frequent_tokens = tokens.apply(lambda x: get_most_frequent_tokens(x, 15))
 most_frequent_tokens
