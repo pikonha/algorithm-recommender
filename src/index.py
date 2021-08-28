@@ -3,21 +3,7 @@
 import pandas as pd
 
 # %%
-df = pd.read_csv(
-  '../data/text.csv',
-  dtype={
-    'reference': str,
-    'problem_type': str,
-    'n_rows': int,
-    'n_columns': int,
-    'target_type': str,
-    'feature_type': str,
-    'type_of_learning': str,
-    'text_content': str,
-    'algorithm': str,
-    'URL': str
-  }
-)
+df = pd.read_csv('../data/text.csv',)
 df.head()
 
 #%%
@@ -71,14 +57,19 @@ from collections import Counter
 nltk.download('stopwords')
 
 #%%
-stop_words = set(stopwords.words('english'))
+stop_words = stopwords.words('english')
 porter = PorterStemmer()
 def handle_text(text):
   tokens = word_tokenize(text)
   tokens = [
-    porter.stem(w) for w in tokens 
-    if not w in stop_words and len(w) > 2 and w.isalpha()]
-  return ' '.join(tokens)
+    porter.stem(w) for w in tokens
+    if not w.lower() in stop_words and 
+    len(w) > 2 and w.isalpha()]
+  return tokens
+
+#%%
+tokens = df['text_content'].apply(handle_text)
+tokens.head(10)
 
 #%%
 def get_most_frequent_tokens(tokens, limit=10):
@@ -86,10 +77,6 @@ def get_most_frequent_tokens(tokens, limit=10):
   with_stp.update(tokens)
   return [x for x,_ in with_stp.most_common(limit)]
   
-#%%
-# tokenize
-tokens = df['text_content'].dropna().apply(handle_text)
-tokens = tokens.apply(lambda x: x.split())
 #%%
 most_frequent_tokens = tokens.apply(lambda x: get_most_frequent_tokens(x, 15))
 most_frequent_tokens
@@ -115,16 +102,31 @@ features.head()
 
 # %%
 target = df.iloc[:, -2]
+target
+
+# %% 
+
+decision_tree = DecisionTreeClassifier()
+
+decision_tree.fit(features, target)
+
+model = pd.Series({
+  "model": decision_tree,
+  "columns": features.columns
+  # "features": features,
+  # "target": y
+})
+model.to_pickle("../models/decision.tree.pkl")
 
 # %%  
 # ===========================================================================#
-from sklearn.model_selection import train_test_split,cross_val_predict
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, mean_squared_error
 from sklearn.linear_model import LogisticRegression, Perceptron
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
 
@@ -154,8 +156,7 @@ model_bench = {
   "accuracy": [],
   "precision": [],
   "recall": [],
-  "fscore": [],
-  "MSE": []
+  "fscore": []
 }
 for model in models:
   model.fit(X_train,y_train)
@@ -163,32 +164,15 @@ for model in models:
   accuracy = accuracy_score(y_test, y_pred)
   precision, recall, fscore, _ = precision_recall_fscore_support(y_test, y_pred,average='weighted')
   
-  y_pred_cv = cross_val_predict(model, features, z, cv=10)
-  MSE = mean_squared_error(z,y_pred_cv)
-
   index.append(type(model).__name__)
   
   model_bench["accuracy"].append(accuracy)
   model_bench["precision"].append(precision)
   model_bench["recall"].append(recall)
   model_bench["fscore"].append(fscore)
-  model_bench["MSE"].append(MSE)
 
 model_bench
 # %% 
 pd.options.display.float_format = '{:.2%}'.format
 bench_df = pd.DataFrame(model_bench, index=index)
 bench_df.head(20)
-# %% 
-# save algorithm
-
-decision_tree = DecisionTreeClassifier()
-decision_tree.fit(features, target)
-
-model = pd.Series({
-  "model": decision_tree,
-  "columns": features.columns
-  # "features": features,
-  # "target": y
-})
-model.to_pickle("../models/decision.tree.pkl")
