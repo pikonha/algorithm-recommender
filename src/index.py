@@ -72,33 +72,60 @@ tokens = df['text_content'].apply(handle_text)
 tokens.head(10)
 
 #%%
-def get_most_frequent_tokens(tokens, limit=10):
-  with_stp = Counter()
-  with_stp.update(tokens)
-  return [x for x,_ in with_stp.most_common(limit)]
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+
+corpus = tokens.str.join(" ")
+tfidf_vectorizer = TfidfVectorizer()
+tfidf_vectorizer = tfidf_vectorizer.fit(corpus)
+terms = tfidf_vectorizer.get_feature_names()
+
+#%%
+def get_most_frequent_tokens(tokens):
+  scored = tfidf_vectorizer.transform(tokens)
+  scores = scored.toarray().flatten().tolist()
+  print(scores)
+  # data = list(zip(terms,scores))
+  # sorted_data = sorted(data,key=lambda x: x[1],reverse=True)
+  # return sorted_data[:10]
+
+#%%
+z = tokens.iloc[0:1].apply(get_most_frequent_tokens)
+z
+#%%
+
+scored = tfidf_vectorizer.transform(tokens.iloc[0])
+scores = scored.toarray().flatten().tolist()
+data = list(zip(terms,scores))
+sorted_data = sorted(data,key=lambda x: x[1],reverse=True)
+sorted_data[:10]
+
+# def get_most_frequent_tokens(tokens, limit=10):
+#   with_stp = Counter()
+#   with_stp.update(tokens)
+#   return [x for x,_ in with_stp.most_common(limit)]
   
 #%%
-most_frequent_tokens = tokens.apply(lambda x: get_most_frequent_tokens(x, 15))
-most_frequent_tokens
-#%%
-df_tokens = pd.DataFrame.from_records(most_frequent_tokens)
-df_tokens.head(20)
+# most_frequent_tokens = tokens.apply(lambda x: get_most_frequent_tokens(x, 15))
+# most_frequent_tokens
+# #%%
+# df_tokens = pd.DataFrame.from_records(most_frequent_tokens)
+# df_tokens.head(20)
 
-# %%
-w = []
-for _, row in df_tokens.iterrows():
-  w.append({col: 1 for col in row})
+# # %%
+# w = []
+# for _, row in df_tokens.iterrows():
+#   w.append({col: 1 for col in row})
 
-df_tokens = pd.DataFrame(w).fillna(0).astype(int)
-df_tokens.head()
+# df_tokens = pd.DataFrame(w).fillna(0).astype(int)
+# df_tokens.head()
 
-# %%
-features = pd.merge(
-  features.reset_index(),
-  df_tokens.reset_index(),
-  left_index=True, right_index=True
-)
-features.head()
+# # %%
+# features = pd.merge(
+#   features.reset_index(),
+#   df_tokens.reset_index(),
+#   left_index=True, right_index=True
+# )
+# features.head()
 
 # %%
 target = df.iloc[:, -2]
